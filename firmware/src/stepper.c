@@ -57,7 +57,7 @@
 
 #define CYCLES_PER_MICROSECOND (F_CPU/1000000)  //16000000/1000000 = 16
 #define CYCLES_PER_ACCELERATION_TICK (F_CPU/ACCELERATION_TICKS_PER_SECOND)  // 16MHz/100 = 160000
-
+#define MINIMUM_LASER_POWER (46) // Assume laser doesn't fire below 18% power (0.18*255 ~= 46)
 
 static int32_t stepper_position[3];  // real-time position in absolute steps
 static block_t *current_block;  // A pointer to the block currently being traced
@@ -472,21 +472,9 @@ static void adjust_speed( uint32_t steps_per_minute ) {
   // beam dynamics
   uint8_t adjusted_intensity = current_block->nominal_laser_intensity *
                                ((float)steps_per_minute/(float)current_block->nominal_rate);
-  uint8_t constrained_intensity = max(adjusted_intensity, 0);
+  uint8_t constrained_intensity = max(adjusted_intensity, MINIMUM_LASER_POWER);
   control_laser_intensity(constrained_intensity);
-
-  // depending on intensity adapt PWM freq
-  // assuming: TCCR0A = _BV(COM0A1) | _BV(WGM00);  // phase correct PWM mode
-  if (constrained_intensity > 40) {
-    // set PWM freq to 3.9kHz
-    TCCR0B = _BV(CS01);
-  } else if (constrained_intensity > 10) {
-    // set PWM freq to 489Hz
-    TCCR0B = _BV(CS01) | _BV(CS00);
-  } else {
-    // set PWM freq to 122Hz
-    TCCR0B = _BV(CS02);
-  }
+  return;
 }
 
 
